@@ -1,45 +1,39 @@
-name: Push Docker Image to ECR
+name: Build and Push to ECR
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repo
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Configure AWS Credentials
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
+          aws-region: us-east-1
 
-      # Step 3: Login to ECR
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      # Step 4: Set image variables
-      - name: Setup Image Tags
+      - name: Get short Git commit SHA
         id: vars
-        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      # Step 5: Build Docker image
       - name: Build Docker image
-        run: |
-          docker build -t my-app:${IMAGE_TAG} .
-          docker tag my-app:${IMAGE_TAG} ${{ steps.login-ecr.outputs.registry }}/my-app:${IMAGE_TAG}
-          docker tag my-app:${IMAGE_TAG} ${{ steps.login-ecr.outputs.registry }}/my-app:latest
+        run: docker build -t my-app:${{ steps.vars.outputs.sha }} .
 
-      # Step 6: Push Docker image to ECR
-      - name: Push to ECR
-        run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/my-app:${IMAGE_TAG}
-          docker push ${{ steps.login-ecr.outputs.registry }}/my-app:latest
+      - name: Tag image
+        run: docker tag my-app:${{ steps.vars.outputs.sha }} 360477615168.dkr.ecr.us-east-1.amazonaws.com/my-app:${{ steps.vars.outputs.sha }}
+
+      - name: Push image to ECR
+        run: docker push 360477615168.dkr.ecr.us-east-1.amazonaws.com/my-app:${{ steps.vars.outputs.sha }}
+
