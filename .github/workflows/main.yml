@@ -1,39 +1,35 @@
-name: Build and Push to ECR
+name: Terraform Deploy Portfolio
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
 
-      - name: Get short Git commit SHA
-        id: vars
-        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
 
-      - name: Build Docker image
-        run: docker build -t my-app:${{ steps.vars.outputs.sha }} .
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve
 
-      - name: Tag image
-        run: docker tag my-app:${{ steps.vars.outputs.sha }} 360477615168.dkr.ecr.us-east-1.amazonaws.com/my-app:${{ steps.vars.outputs.sha }}
-
-      - name: Push image to ECR
-        run: docker push 360477615168.dkr.ecr.us-east-1.amazonaws.com/my-app:${{ steps.vars.outputs.sha }}
-
+      - name: Output Public IP
+        working-directory: terraform
+        run: terraform output portfolio_url
